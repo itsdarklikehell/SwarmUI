@@ -109,6 +109,9 @@ public partial class WorkflowGenerator
     /// <summary>Returns true if the current model is HiDream-O1 Image.</summary>
     public bool IsHiDreamO1() => IsModelCompatClass(T2IModelClassSorter.CompatHiDreamO1);
 
+    /// <summary>Returns true if the current model is SenseNova U1.5.</summary>
+    public bool IsSenseNovaU15() => IsModelCompatClass(T2IModelClassSorter.CompatSenseNovaU15);
+
     /// <summary>Returns true if the current model is Lens.</summary>
     public bool IsLens() => IsModelCompatClass(T2IModelClassSorter.CompatLens);
 
@@ -275,6 +278,12 @@ public partial class WorkflowGenerator
         return IsModelCompatClass(T2IModelClassSorter.CompatMiniMaxMusic3);
     }
 
+    /// <summary>Returns true if the current model is YuE2.</summary>
+    public bool IsYue2()
+    {
+        return IsModelCompatClass(T2IModelClassSorter.CompatYue2);
+    }
+
     /// <summary>Returns true if the current model primarily operates on audio.</summary>
     public bool IsAudioModel()
     {
@@ -416,9 +425,9 @@ public partial class WorkflowGenerator
                 ["seconds"] = UserInput.Get(T2IParamTypes.Text2AudioDuration, 120)
             }, id));
         }
-        else if (IsMiniMaxMusic3())
+        else if (IsMiniMaxMusic3() || IsYue2())
         {
-            JProperty encodedNode = NodesOfClass("MiniMaxMusic3TextEncode").FirstOrDefault();
+            JProperty encodedNode = NodesOfClass(IsYue2() ? "YuE2GenerateMusic" : "MiniMaxMusic3TextEncode").FirstOrDefault();
             JToken targetSeconds;
             if (encodedNode is not null)
             {
@@ -428,7 +437,7 @@ public partial class WorkflowGenerator
             {
                 targetSeconds = NodePath("6", 1); // TODO: This is a very wrong hack hardcoding the prompt path. This will break in many practical edge cases. Need to figure out the special routing that applies here.
             }
-            return resultAudio(CreateNode("EmptyMiniMaxMusic3LatentAudio", new JObject()
+            return resultAudio(CreateNode(IsYue2() ? "EmptyYuE2LatentAudio" : "EmptyMiniMaxMusic3LatentAudio", new JObject()
             {
                 ["batch_size"] = batchSize,
                 ["seconds"] = targetSeconds
@@ -493,7 +502,7 @@ public partial class WorkflowGenerator
                 ["width"] = width
             }, id));
         }
-        else if (IsHiDreamO1()) // TODO: use VAE Family
+        else if (IsHiDreamO1() || IsSenseNovaU15()) // TODO: use VAE Family
         {
             return resultImage(CreateNode("EmptyHiDreamO1LatentImage", new JObject()
             {
@@ -570,7 +579,7 @@ public partial class WorkflowGenerator
             }
             if (string.IsNullOrWhiteSpace(vaeFile))
             {
-                vaeModel = compatClass is null ? null : Program.T2IModelSets["VAE"].Models.Values.FirstOrDefault(m => m.ModelClass?.CompatClass?.ID == compatClass);
+                vaeModel = compatClass is null ? null : Program.T2IModelSets["VAE"].Models.Values.FirstOrDefault(m => m.ModelClass?.CompatClass?.ID == compatClass && (m.ModelClass?.ID?.EndsWith("/vae") ?? false));
                 if (vaeModel is not null)
                 {
                     Logs.Debug($"Auto-selected first available VAE of compat class '{compatClass}', VAE '{vaeModel.Name}' will be applied");
@@ -1526,6 +1535,10 @@ public partial class WorkflowGenerator
             helpers.DoVaeLoader(null, T2IModelClassSorter.CompatMiniMaxMusic3, "minimax-music-3-vae");
             CurrentAudioVae = new WGNodeData([LoadingVAE, 0], this, WGNodeData.DT_AUDIOVAE, CurrentCompat());
         }
+        else if (IsYue2())
+        {
+            CurrentAudioVae = new WGNodeData([LoadingVAE, 0], this, WGNodeData.DT_AUDIOVAE, CurrentCompat());
+        }
         else if (IsAceStep15())
         {
             // TODO: WTF? these twin qwen tencs are wacky.
@@ -1565,7 +1578,7 @@ public partial class WorkflowGenerator
         }
         if (UserInput.TryGet(T2IParamTypes.SigmaShift, out double shiftVal, sectionId: sectionId))
         {
-            if (IsFlux() || IsAnyFlux2())
+            if (IsFlux() || IsAnyFlux2() || IsKrea2())
             {
                 string samplingNode = CreateNode("ModelSamplingFlux", new JObject()
                 {
@@ -1573,11 +1586,11 @@ public partial class WorkflowGenerator
                     ["width"] = UserInput.GetImageWidth(),
                     ["height"] = UserInput.GetImageHeight(),
                     ["max_shift"] = shiftVal,
-                    ["base_shift"] = 0.5 // TODO: Does this need an input?
+                    ["base_shift"] = IsKrea2() ? shiftVal : 0.5 // TODO: Does this need an input?
                 });
                 LoadingModel = [samplingNode, 0];
             }
-            else if (IsZImage() || IsAceStep15() || IsAnima() || IsKrea2() || IsBoogu())
+            else if (IsZImage() || IsAceStep15() || IsAnima() || IsBoogu())
             {
                 string samplingNode = CreateNode("ModelSamplingAuraFlow", new JObject()
                 {
@@ -1589,6 +1602,15 @@ public partial class WorkflowGenerator
             else if (IsHunyuanVideo() || IsHunyuanVideo15() || IsHunyuanImage() || IsWanVideo() || IsWanVideo22() || IsHiDream())
             {
                 string samplingNode = CreateNode("ModelSamplingSD3", new JObject()
+                {
+                    ["model"] = LoadingModel,
+                    ["shift"] = shiftVal
+                });
+                LoadingModel = [samplingNode, 0];
+            }
+            else if (IsSenseNovaU15())
+            {
+                string samplingNode = CreateNode("SenseNovaSamplingOptions", new JObject()
                 {
                     ["model"] = LoadingModel,
                     ["shift"] = shiftVal

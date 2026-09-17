@@ -399,12 +399,7 @@ class ImageFullViewHelper {
             new AudioControls(this.getImg());
         }
         if (mediaType == 'video' || mediaType == 'audio') {
-            let curImgElem = currentImageHelper.getCurrentImage();
-            if (curImgElem) {
-                if (curImgElem.tagName == 'VIDEO' || curImgElem.tagName == 'AUDIO') {
-                    curImgElem.pause();
-                }
-            }
+            currentImageHelper.doAutoPause();
         }
         if (this.fixButtonDelay) {
             clearTimeout(this.fixButtonDelay);
@@ -490,6 +485,15 @@ class CurrentImageHelper {
         }
         return img;
     }
+
+    doAutoPause() {
+        let curImgElem = this.getCurrentImage();
+        if (curImgElem) {
+            if (curImgElem.tagName == 'VIDEO' || curImgElem.tagName == 'AUDIO') {
+                curImgElem.pause();
+            }
+        }
+    }
 }
 
 currentImageHelper = new CurrentImageHelper();
@@ -539,6 +543,23 @@ separateBatchesElem.checked = localStorage.getItem('separateBatches') == 'true';
 /** Called when the user changes separate-batches toggle to update local storage. */
 function toggleSeparateBatches() {
     localStorage.setItem('separateBatches', `${separateBatchesElem.checked}`);
+}
+
+/** Reference to the play-batch-videos toggle checkbox. */
+let playBatchVideosElem = getRequiredElementById('play_batch_videos_checkbox');
+playBatchVideosElem.checked = localStorage.getItem('playBatchVideos') != 'false';
+/** Called when the user changes play-batch-videos toggle to update local storage. */
+function togglePlayBatchVideos() {
+    localStorage.setItem('playBatchVideos', `${playBatchVideosElem.checked}`);
+    for (let vid of getRequiredElementById('current_image_batch').getElementsByTagName('video')) {
+        vid.autoplay = playBatchVideosElem.checked;
+        if (playBatchVideosElem.checked) {
+            vid.play().catch(() => {});
+        }
+        else {
+            vid.pause();
+        }
+    }
 }
 
 function clickImageInBatch(div) {
@@ -953,6 +974,12 @@ function setCurrentImage(src, metadata = '', batchId = '', previewGrow = false, 
         return;
     }
     let mediaType = getMediaType(src);
+    if (!metadata && canReparse && (mediaType == 'audio' || mediaType == 'video')) {
+        parseMediaMetadata(src, (data, parsedMetadata) => {
+            setCurrentImage(src, parsedMetadata, batchId, previewGrow, false, false);
+        });
+        return;
+    }
     if ((smoothAdd || !metadata) && canReparse && mediaType == 'image') {
         let image = new Image();
         image.onload = () => {
@@ -1383,7 +1410,7 @@ function appendImage(container, imageSrc, batchId, textPreview, metadata = '', t
     if (isVideo) {
         img = document.createElement('video');
         img.loop = true;
-        img.autoplay = true;
+        img.autoplay = !container.closest('#current_image_batch') || playBatchVideosElem.checked;
         img.muted = true;
         img.width = 16 * 10;
         let sourceObj = document.createElement('source');
@@ -1492,6 +1519,11 @@ function imageInputHandler() {
                         setCurrentImage(e.target.result, null);
                     }
                 }
+                reader.readAsDataURL(file);
+            }
+            else if (file.type.startsWith('video/') || file.type.startsWith('audio/')) {
+                let reader = new FileReader();
+                reader.onload = (e) => setCurrentImage(e.target.result);
                 reader.readAsDataURL(file);
             }
             else if (file.name.endsWith('.json') || file.type == 'application/json') {

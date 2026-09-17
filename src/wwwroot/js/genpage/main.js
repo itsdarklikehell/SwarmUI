@@ -203,9 +203,14 @@ function reviseBackendFeatureSet() {
     doCompatFeature('stable-diffusion-v3', 'sd3');
     doCompatFeature('stable-cascade-v1', 'cascade');
     doAnyArchFeature(['Flux.1-dev', 'flux.2-dev', 'flux.2-klein-4b', 'flux.2-klein-9b', 'hunyuan-video'], 'flux-dev');
+    doCompatFeature('krea-2', 'optional_reference_latent');
     doCompatFeature('stable-diffusion-xl-v1', 'sdxl');
+    doAnyCompatFeature(['stable-diffusion-v1', 'stable-diffusion-xl-v1'], 'model_has_ipadapter');
+    doAnyCompatFeature(['stable-diffusion-v1', 'stable-diffusion-v2', 'stable-diffusion-xl-v1'], 'supports_reference_only');
+    doAnyCompatFeature(['stable-diffusion-v1', 'stable-diffusion-v2', 'stable-diffusion-xl-v1'], 'supports_hypertile');
     doAnyCompatFeature(['genmo-mochi-1', 'lightricks-ltx-video', 'hunyuan-video', 'nvidia-cosmos-1', `wan-21`, `wan-22`, 'kandinsky5-vidlite', 'kandinsky5-vidpro', 'minimax-h3'], 'text2video');
-    doAnyCompatFeature(['ace-step-1_5', 'minimax-music-3'], 'text2audio');
+    doAnyCompatFeature(['ace-step-1_5', 'minimax-music-3', 'yue-2'], 'text2audio');
+    doCompatFeature('ace-step-1_5', 'audio_ace_inputs');
     for (let changer of featureSetChangers) {
         let [add, remove] = changer();
         addMe.push(...add);
@@ -558,15 +563,16 @@ function imagePromptAddImage(file) {
 }
 
 /** Extracts a prompt video's audio on the server and attaches the saved audio result. */
-function imagePromptSplitVideoAudio(video) {
-    genericRequest('ExtractVideoAudio', { video: video.dataset.filedata, filename: video.dataset.filename || '' }, result => {
-        imagePromptAddImageData(result.audio.src, 'audio', result.audio.path, result.audio.path);
+function imagePromptSplitVideoAudio(video, startMilliseconds = 0, endMilliseconds = -1, onComplete = null) {
+    genericRequest('EditMedia', { media: video.dataset.filedata, filename: video.dataset.filename || '', startMilliseconds, endMilliseconds, audioOnly: true }, result => {
+        imagePromptAddImageData(`${getImageOutPrefix()}/${result.result}`, 'audio', result.result, result.result);
         if (inputBrowserHelper.inputImageBrowser) {
             inputBrowserHelper.inputImageBrowser.lightRefresh();
         }
-        mainGenHandler.gotImageResult(result.images[0].image, result.images[0].metadata, '0');
+        onComplete?.(true);
     }, 0, error => {
         showError(error);
+        onComplete?.(false);
     });
 }
 
@@ -587,6 +593,14 @@ function showPromptMediaMenu(media, menuButton, x = null, y = null) {
             key: 'Split Audio',
             title: "Extract this video's audio and attach it as a separate prompt audio input",
             action: () => imagePromptSplitVideoAudio(media)
+        });
+    }
+    if (media.tagName == 'VIDEO' || media.tagName == 'AUDIO') {
+        let mediaName = media.tagName == 'AUDIO' ? 'audio' : 'video';
+        buttons.push({
+            key: `Advanced ${mediaName[0].toUpperCase()}${mediaName.substring(1)} Editor`,
+            title: `Trim${mediaName == 'video' ? ' or crop' : ''} this ${mediaName} and save the result`,
+            action: () => mediaEditorInterface.open(media)
         });
     }
     buttons.push({
