@@ -15,6 +15,14 @@ A Modular AI Image Generation Web-User-Interface, with an emphasis on making pow
 
 ----
 
+## Development Visualization
+
+<video src="https://github.com/itsdarklikehell/SwarmUI/assets/example.com/123456/gource.mp4" controls width="100%"></video>
+
+*Gource visualization showing the repository's commit history. See the [Gource workflow](.github/workflows/gource.yml) for details.*
+
+----
+
 # Status
 
 This project is in **Almost-Release** status. This means for most tasks, Swarm has excellent tooling available to you, but there are a few areas I still want to perfect. Swarm is recommended as an ideal UI for most users, beginners and pros alike.
