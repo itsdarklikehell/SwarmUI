@@ -1,5 +1,12 @@
 # SwarmUI
 
+[![CI](https://github.com/itsdarklikehell/SwarmUI/actions/workflows/ci.yml/badge.svg)](https://github.com/itsdarklikehell/SwarmUI/actions/workflows/ci.yml)
+[![Gource](https://github.com/itsdarklikehell/SwarmUI/actions/workflows/gource.yml/badge.svg)](https://github.com/itsdarklikehell/SwarmUI/actions/workflows/gource.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub issues](https://img.shields.io/github/issues/itsdarklikehell/SwarmUI)](https://github.com/itsdarklikehell/SwarmUI/issues)
+[![GitHub pull requests](https://img.shields.io/github/issues-pr/itsdarklikehell/SwarmUI)](https://github.com/itsdarklikehell/SwarmUI/pulls)
+
+
 **SwarmUI v0.9.8 Beta**.
 
 *Formerly known as StableSwarmUI.*
